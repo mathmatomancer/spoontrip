@@ -1,4 +1,7 @@
 Rails.application.routes.draw do
+  root 'spoon_trip#index'
+
+  resources :spoon_trip, only: [:index]
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
 
