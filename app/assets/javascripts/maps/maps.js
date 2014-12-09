@@ -1,10 +1,10 @@
-console.log('loaded map js file');
-
 var SPOONTRIP = {};
+var MapSettings = {};
 
 (function($) {
-  var MapSettings = {
+  MapSettings = {
     map: null,
+    directions: null,
     starting_coordinates: null,
     path: [],
     argument_string: '',
@@ -15,13 +15,12 @@ var SPOONTRIP = {};
   SPOONTRIP = {
     mapStart: function () {
       MapSettings.map = new google.maps.Map(document.getElementById("google-map"), {
-        zoom: 14,
+        zoom: 10,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
 
       });
       mapCenter(); // fills in coordinates
       drawing_manager = new google.maps.drawing.DrawingManager({
-        drawingMode: google.maps.drawing.OverlayType.POLYLINE,
         drawingControlOptions: {
           drawingModes: [google.maps.drawing.OverlayType.POLYLINE]
         },
@@ -35,15 +34,15 @@ var SPOONTRIP = {};
       });
       drawing_manager.setMap(MapSettings.map);
       $('#fetch-data').hide();
+
+      MapSettings.directions = new google.maps.DirectionsService();
+      MapSettings.display = new google.maps.DirectionsRenderer();
+      MapSettings.display.setMap(MapSettings.map)
     }
-  }
+  };
 
   function mapCenter() {
-    //if(navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(getCoords)
-    //} else {
-    //    MapSettings.starting_coordinates = new google.maps.LatLng(47.6,-122.0);
-    // }
+    navigator.geolocation.getCurrentPosition(getCoords);
   }
 
   function getCoords(position) {
@@ -93,7 +92,7 @@ var SPOONTRIP = {};
   function getRestaurants() {
     MapSettings.path.forEach(appendArgument);
     var url = 'http://qaus1.dev.spoon/api/v2/spoon_trips?' + MapSettings.argument_string;
-    jQuery.ajax({url: url}).done(function (data) {
+    $.ajax({url: url}).done(function (data) {
       var response = data;
       response.forEach(function (datapoint) {
         setMarker(datapoint);
@@ -101,9 +100,43 @@ var SPOONTRIP = {};
     });
   }
 
+  function getDirections(e) {
+    e.preventDefault();
+    var form = $(this);
+    var origin = $('#origin', form).val();
+    var dest = $('#destination', form).val();
+    MapSettings.directions.route({origin: origin, destination: dest, travelMode: google.maps.TravelMode.DRIVING}, processDirections)
+  }
+
+  function processDirections(data, status) {
+    showResults(data, status);
+    grabPoints(data);
+    getRestaurants();
+  }
+
+  function grabPoints(data) {
+
+    // data is a DirectionsResult, has routes w/legs and such. assume 1 route, 1 leg, grab points
+
+    var steps = data.routes[0].legs[0].steps;
+    MapSettings.test_points = steps;
+    steps.forEach(function(element, index, array) {
+        MapSettings.path[index] = element.start_location;
+    });
+    MapSettings.path[steps.length] = steps[steps.length - 1].end_location;
+  }
+
+  function showResults(data, status) {
+    if (status == google.maps.DirectionsStatus.OK) {
+      MapSettings.display.setDirections(data);
+    }
+  }
+
   function appendArgument(element, index, array) {
     MapSettings.argument_string = MapSettings.argument_string + "path[]=" + element.lat() + ',' + element.lng() + '&';
   }
 
   $(document).on('click', '#fetch-data', getRestaurants);
+
+  $(document).on('submit', '#directions form', getDirections);
 })(jQuery);
