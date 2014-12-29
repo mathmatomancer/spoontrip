@@ -15,3 +15,7 @@
 //= require turbolinks
 //= require_tree .
 //= require_tree ./maps
+//= require jsts
+//= require jsts/io/GeoJSONParser
+//= require jsts/io/GeoJSONReader
+//= require jsts/io/GeoJSONWriter

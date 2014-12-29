@@ -1,5 +1,6 @@
 var SPOONTRIP = {};
-var MapSettings = {};
+var MapSettings;
+var calculatePolygon;
 
 (function($) {
   MapSettings = {
@@ -7,9 +8,24 @@ var MapSettings = {};
     directions: null,
     starting_coordinates: null,
     path: [],
-    argument_string: '',
     markers: [],
-    infoWindow: undefined
+    infoWindow: undefined,
+    argument_string: function () {
+      var string = '';
+      var points_out = [], points_back = [];
+      MapSettings.path.forEach(function (point) {
+        points_out.push(point);
+        points_back.push(point);
+      });
+      points_back.reverse();
+      points_out.forEach(function(point){
+        string = string + point.lat() + ',' + point.lng() + ','
+      });
+      points_back.forEach(function(point){
+        string = string + point.lat() + ',' + point.lng() + ','
+      });
+      return 'polygon='+string;
+    }
   };
 
   SPOONTRIP = {
@@ -29,7 +45,7 @@ var MapSettings = {};
         }
       });
       google.maps.event.addListener(drawing_manager, 'polylinecomplete', function (line) {
-        MapSettings.path = line.getPath().getArray();
+        MapSettings.path = calculatePolygon( line.getPath().getArray() );
         $('#fetch-data').show();
       });
       drawing_manager.setMap(MapSettings.map);
@@ -90,12 +106,14 @@ var MapSettings = {};
   }
 
   function getRestaurants() {
-    MapSettings.path.forEach(appendArgument);
-    var url = 'http://qaus1.dev.spoon/api/v2/spoon_trips?' + MapSettings.argument_string;
+    calculatePolygon(MapSettings.test_points);
+    var url = 'http://localhost:3000/api/v2/restaurants?' + MapSettings.argument_string();
+    console.log(url);
     $.ajax({url: url}).done(function (data) {
-      var response = data;
-      response.forEach(function (datapoint) {
-        setMarker(datapoint);
+      var response = data.restaurants;
+      console.log(response);
+      response.forEach(function (element) {
+        setMarker(element);
       });
     });
   }
@@ -119,11 +137,7 @@ var MapSettings = {};
     // data is a DirectionsResult, has routes w/legs and such. assume 1 route, 1 leg, grab points
 
     var steps = data.routes[0].legs[0].steps;
-    MapSettings.test_points = steps;
-    steps.forEach(function(element, index, array) {
-        MapSettings.path[index] = element.start_location;
-    });
-    MapSettings.path[steps.length] = steps[steps.length - 1].end_location;
+    MapSettings.test_points = data.routes[0].overview_path;
   }
 
   function showResults(data, status) {
@@ -132,11 +146,49 @@ var MapSettings = {};
     }
   }
 
-  function appendArgument(element, index, array) {
-    MapSettings.argument_string = MapSettings.argument_string + "path[]=" + element.lat() + ',' + element.lng() + '&';
-  }
-
   $(document).on('click', '#fetch-data', getRestaurants);
 
   $(document).on('submit', '#directions form', getDirections);
+
+  $.ajaxSetup({headers: {'ClientId': '<%= ENV['API_TOKEN'] %>' }});
+
+  calculatePolygon = function (path){
+    var overviewPath = path,
+        overviewPathGeo = [];
+    console.log(overviewPath.length);
+    var increment = Math.round(overviewPath.length / 25); // get about 25 points to work with
+    for (var i = 0; i < overviewPath.length; i = i+ increment) {
+      overviewPathGeo.push(
+          [overviewPath[i].lng(), overviewPath[i].lat()]
+      );
+    }
+    console.log(overviewPathGeo.length);
+    var distance = 0.1,// rough radius, scale around 10km
+        geoInput = {
+          type: "LineString",
+          coordinates: overviewPathGeo
+        };
+    var geoReader = new jsts.io.GeoJSONReader(),
+        geoWriter = new jsts.io.GeoJSONWriter();
+    var geometry = geoReader.read(geoInput).buffer(distance);
+    var polygon = geoWriter.write(geometry);
+
+    var oLanLng = [];
+    var oCoordinates;
+    oCoordinates = polygon.coordinates[0];
+    console.log(oCoordinates.length);
+    for (i = 0; i < oCoordinates.length; i++) {
+      var oItem;
+      oItem = oCoordinates[i];
+      oLanLng.push(new google.maps.LatLng(oItem[1], oItem[0]));
+    }
+
+    var polygone = new google.maps.Polygon({
+      paths: oLanLng,
+      map:MapSettings.map // show for now, remove later
+    });
+
+    MapSettings.path = polygone.latLngs.getArray()[0].j;
+  }
 })(jQuery);
+
