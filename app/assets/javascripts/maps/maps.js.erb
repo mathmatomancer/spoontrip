@@ -107,7 +107,7 @@ var calculatePolygon;
 
   function getRestaurants() {
     calculatePolygon(MapSettings.test_points);
-    var url = 'http://localhost:3000/api/v2/restaurants?' + MapSettings.argument_string();
+    var url = 'http://www.urbanspoon.com/api/v2/restaurants?' + MapSettings.argument_string();
     console.log(url);
     $.ajax({url: url}).done(function (data) {
       var response = data.restaurants;
