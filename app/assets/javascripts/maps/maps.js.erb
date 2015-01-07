@@ -12,17 +12,8 @@ var calculatePolygon;
     infoWindow: undefined,
     argument_string: function () {
       var string = '';
-      var points_out = [], points_back = [];
       MapSettings.path.forEach(function (point) {
-        points_out.push(point);
-        points_back.push(point);
-      });
-      points_back.reverse();
-      points_out.forEach(function(point){
-        string = string + point.lat() + ',' + point.lng() + ','
-      });
-      points_back.forEach(function(point){
-        string = string + point.lat() + ',' + point.lng() + ','
+        string = string + (Math.round(point.lat() * 100) / 100) + ',' + (Math.round(point.lng() * 100) / 100) + ','
       });
       return 'polygon='+string;
     }
@@ -36,19 +27,7 @@ var calculatePolygon;
 
       });
       mapCenter(); // fills in coordinates
-      drawing_manager = new google.maps.drawing.DrawingManager({
-        drawingControlOptions: {
-          drawingModes: [google.maps.drawing.OverlayType.POLYLINE]
-        },
-        polylineOptions: {
-          editable: true
-        }
-      });
-      google.maps.event.addListener(drawing_manager, 'polylinecomplete', function (line) {
-        MapSettings.path = calculatePolygon( line.getPath().getArray() );
-        $('#fetch-data').show();
-      });
-      drawing_manager.setMap(MapSettings.map);
+
       $('#fetch-data').hide();
 
       MapSettings.directions = new google.maps.DirectionsService();
@@ -150,7 +129,7 @@ var calculatePolygon;
 
   $(document).on('submit', '#directions form', getDirections);
 
-  $.ajaxSetup({headers: {'ClientId': '<%= ENV['API_TOKEN'] %>' }});
+  $.ajaxSetup({headers: {'ClientId': '<%= ENV['CLIENT_ID'] %>' }});
 
   calculatePolygon = function (path){
     var overviewPath = path,
@@ -159,7 +138,7 @@ var calculatePolygon;
     var increment = Math.round(overviewPath.length / 25); // get about 25 points to work with
     for (var i = 0; i < overviewPath.length; i = i+ increment) {
       overviewPathGeo.push(
-          [Math.round(overviewPath[i].lng() * 100) / 100, Math.round(overviewPath[i].lat() * 100) / 100]
+          [overviewPath[i].lat(), overviewPath[i].lat()]
       );
     }
     console.log(overviewPathGeo.length);
@@ -183,7 +162,9 @@ var calculatePolygon;
       oLanLng.push(new google.maps.LatLng(oItem[1], oItem[0]));
     }
 
-    var polygone = new google.maps.Polygon({ paths: oLanLng });
+    var polygone = new google.maps.Polygon({
+      paths: oLanLng
+    });
 
     MapSettings.path = polygone.latLngs.getArray()[0].j;
   }
